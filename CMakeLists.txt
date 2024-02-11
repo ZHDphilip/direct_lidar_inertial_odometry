@@ -25,6 +25,10 @@ find_package(PCL REQUIRED)
 find_package( Eigen3 REQUIRED )
 find_package(Threads REQUIRED)
 
+# To make dlio work on ubuntu 22.04, import boost 1.74.0 which comes with ubuntu 22.04
+# For other ros2 distribution removing this line may still work
+find_package(Boost 1.74.0 EXACT)
+
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_STANDARD 17)
 
