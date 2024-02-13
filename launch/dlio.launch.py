@@ -22,6 +22,7 @@ def generate_launch_description():
     rviz = LaunchConfiguration('rviz', default='false')
     pointcloud_topic = LaunchConfiguration('pointcloud_topic', default='points_raw')
     imu_topic = LaunchConfiguration('imu_topic', default='imu_raw')
+    descriptor_topic = LaunchConfiguration('descriptor_topic', default='/PointRec/descriptor_cloud')
 
     # Define arguments
     declare_rviz_arg = DeclareLaunchArgument(
@@ -39,6 +40,11 @@ def generate_launch_description():
         default_value=imu_topic,
         description='IMU topic name'
     )
+    declare_descriptor_topic_arg = DeclareLaunchArgument(
+        'descriptor_topic',
+        default_value=descriptor_topic,
+        description='Compressed descriptor cloud topic name'
+    )
 
     # Load parameters
     dlio_yaml_path = PathJoinSubstitution([current_pkg, 'cfg', 'dlio.yaml'])
@@ -53,6 +59,7 @@ def generate_launch_description():
         remappings=[
             ('pointcloud', pointcloud_topic),
             ('imu', imu_topic),
+            ('descriptor', descriptor_topic),
             ('odom', 'dlio/odom_node/odom'),
             ('pose', 'dlio/odom_node/pose'),
             ('path', 'dlio/odom_node/path'),
@@ -88,6 +95,7 @@ def generate_launch_description():
         declare_rviz_arg,
         declare_pointcloud_topic_arg,
         declare_imu_topic_arg,
+        declare_descriptor_topic_arg,
         dlio_odom_node,
         dlio_map_node,
         rviz_node

@@ -37,6 +37,12 @@ dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
   this->lidar_sub = this->create_subscription<sensor_msgs::msg::PointCloud2>("pointcloud", 1,
       std::bind(&dlio::OdomNode::callbackPointCloud, this, std::placeholders::_1), lidar_sub_opt);
 
+  this->descriptor_cb_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  auto descriptor_sub_opt = rclcpp::SubscriptionOptions();
+  descriptor_sub_opt.callback_group = this->descriptor_cb_group;
+  this->descriptor_sub = this->create_subscription<sensor_msgs::msg::PointCloud2>("descriptor", 1,
+      std::bind(&dlio::OdomNode::callbackDescriptor, this, std::placeholders::_1), descriptor_sub_opt);
+
   this->imu_cb_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   auto imu_sub_opt = rclcpp::SubscriptionOptions();
   imu_sub_opt.callback_group = this->imu_cb_group;
@@ -86,6 +92,7 @@ dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
   this->deskewed_scan = std::make_shared<const pcl::PointCloud<PointType>>();
   this->current_scan = std::make_shared<const pcl::PointCloud<PointType>>();
   this->submap_cloud = std::make_shared<const pcl::PointCloud<PointType>>();
+  this->compressed_scan = std::make_shared<const pcl::PointCloud<PointType>>();
 
   this->num_processed_keyframes = 0;
 
@@ -134,6 +141,11 @@ dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
 
   this->metrics.spaciousness.push_back(0.);
   this->metrics.density.push_back(this->gicp_max_corr_dist_);
+
+  // promise objects initialization
+  this->promise_ = std::promise<void>();
+  this->future_ = promise_.get_future();
+  this->promise_value_set = false;
 
   // CPU Specs
   char CPUBrandString[0x40];
@@ -204,7 +216,8 @@ void dlio::OdomNode::getParams() {
   dlio::declare_param(this, "odom/submap/keyframe/kcc", this->submap_kcc_, 10);
 
   // Dense map resolution
-  dlio::declare_param(this, "map/dense/filtered", this->densemap_filtered_, true);
+  // when testing should try modify to false 
+  dlio::declare_param(this, "map/dense/filtered", this->densemap_filtered_, false);
 
   // Wait until movement to publish map
   dlio::declare_param(this, "map/waitUntilMove", this->wait_until_move_, false);
@@ -213,7 +226,8 @@ void dlio::OdomNode::getParams() {
   dlio::declare_param(this, "odom/preprocessing/cropBoxFilter/size", this->crop_size_, 1.0);
 
   // Voxel Grid Filter
-  dlio::declare_param(this, "pointcloud/voxelize", this->vf_use_, true);
+  // when testing should try modify to false 
+  dlio::declare_param(this, "pointcloud/voxelize", this->vf_use_, false);
   dlio::declare_param(this, "odom/preprocessing/voxelFilter/res", this->vf_res_, 0.05);
 
   // Adaptive Parameters
@@ -358,7 +372,7 @@ void dlio::OdomNode::publishPose() {
 }
 
 void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
-  this->publishCloud(published_cloud, T_cloud);
+  // this->publishCloud(published_cloud, T_cloud);
 
   // nav_msgs::msg::Path
   this->path_ros.header.stamp = this->imu_stamp;
@@ -433,9 +447,11 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
 }
 
 void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
-
+  
   if (this->wait_until_move_) {
-    if (this->length_traversed < 0.1) { return; }
+    if (this->length_traversed < 0.1) { 
+      return; 
+    }
   }
 
   pcl::PointCloud<PointType>::Ptr deskewed_scan_t_ = std::make_shared<pcl::PointCloud<PointType>>();
@@ -448,6 +464,7 @@ void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published
   deskewed_ros.header.stamp = this->scan_header_stamp;
   deskewed_ros.header.frame_id = this->odom_frame;
   this->deskewed_pub->publish(deskewed_ros);
+  this->future_.wait();
 
 }
 
@@ -488,7 +505,7 @@ void dlio::OdomNode::publishKeyframe(std::pair<std::pair<Eigen::Vector3f, Eigen:
 
 }
 
-void dlio::OdomNode::getScanFromROS(const sensor_msgs::msg::PointCloud2::SharedPtr& pc) {
+void dlio::OdomNode::getScanFromROS(const sensor_msgs::msg::PointCloud2::SharedPtr& pc, bool descriptor) {
 
   pcl::PointCloud<PointType>::Ptr original_scan_ = std::make_shared<pcl::PointCloud<PointType>>();
   pcl::fromROSMsg(*pc, *original_scan_);
@@ -522,7 +539,11 @@ void dlio::OdomNode::getScanFromROS(const sensor_msgs::msg::PointCloud2::SharedP
   }
 
   this->scan_header_stamp = pc->header.stamp;
-  this->original_scan = original_scan_;
+  if (descriptor) {
+    this->current_scan = original_scan_;
+  }
+  else
+    this->original_scan = original_scan_;
 
 }
 
@@ -573,15 +594,9 @@ void dlio::OdomNode::preprocessPoints() {
     this->deskew_status = false;
   }
 
-  // Voxel Grid Filter
-  if (this->vf_use_) {
-    pcl::PointCloud<PointType>::Ptr current_scan_ = std::make_shared<pcl::PointCloud<PointType>>(*this->deskewed_scan);
-    this->voxel.setInputCloud(current_scan_);
-    this->voxel.filter(*current_scan_);
-    this->current_scan = current_scan_;
-  } else {
-    this->current_scan = this->deskewed_scan;
-  }
+  pcl::PointCloud<PointType>::ConstPtr published_cloud;
+  published_cloud = this->deskewed_scan;
+  this->publishCloud(published_cloud, this->T_corr);
 
 }
 
@@ -733,6 +748,20 @@ void dlio::OdomNode::initializeDLIO() {
 
 }
 
+void dlio::OdomNode::callbackDescriptor(const sensor_msgs::msg::PointCloud2::SharedPtr pc) {
+
+  if (this->promise_value_set) {
+    this->promise_ = std::promise<void>();
+    this->future_ = promise_.get_future();
+  }
+
+  this->getScanFromROS(pc, true);
+
+  this->promise_.set_value();
+  this->promise_value_set = true;
+
+}
+
 void dlio::OdomNode::callbackPointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr pc) {
 
   std::unique_lock<decltype(this->main_loop_running_mutex)> lock(main_loop_running_mutex);
@@ -790,7 +819,6 @@ void dlio::OdomNode::callbackPointCloud(const sensor_msgs::msg::PointCloud2::Sha
   // Get the next pose via IMU + S2M + GEO
   this->getNextPose();
 
-  // Update current keyframe poses and map
   this->updateKeyframes();
 
   // Build keyframe normals and submap if needed (and if we're not already waiting)

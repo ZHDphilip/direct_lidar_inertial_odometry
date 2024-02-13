@@ -55,6 +55,7 @@ private:
   void getParams();
 
   void callbackPointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr pc);
+  void callbackDescriptor(const sensor_msgs::msg::PointCloud2::SharedPtr pc);
   void callbackImu(const sensor_msgs::msg::Imu::SharedPtr imu);
 
   void publishPose();
@@ -64,7 +65,7 @@ private:
   void publishKeyframe(std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>,
                        pcl::PointCloud<PointType>::ConstPtr> kf, rclcpp::Time timestamp);
 
-  void getScanFromROS(const sensor_msgs::msg::PointCloud2::SharedPtr& pc);
+  void getScanFromROS(const sensor_msgs::msg::PointCloud2::SharedPtr& pc, bool descriptor=false);
   void preprocessPoints();
   void deskewPointcloud();
   void initializeInputTarget();
@@ -112,8 +113,9 @@ private:
 
   // Subscribers
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr descriptor_sub;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub;
-  rclcpp::CallbackGroup::SharedPtr lidar_cb_group, imu_cb_group;
+  rclcpp::CallbackGroup::SharedPtr lidar_cb_group, descriptor_cb_group, imu_cb_group;
 
   // Publishers
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub;
@@ -177,6 +179,7 @@ private:
   pcl::PointCloud<PointType>::ConstPtr original_scan;
   pcl::PointCloud<PointType>::ConstPtr deskewed_scan;
   pcl::PointCloud<PointType>::ConstPtr current_scan;
+  pcl::PointCloud<PointType>::ConstPtr compressed_scan;
 
   // Keyframes
   pcl::PointCloud<PointType>::ConstPtr keyframe_cloud;
@@ -360,5 +363,10 @@ private:
   double geo_Kgb_;
   double geo_abias_max_;
   double geo_gbias_max_;
+
+  // promise objects for waiting point cloud compression
+  std::promise<void> promise_;
+  std::future<void> future_;
+  bool promise_value_set;
 
 };
