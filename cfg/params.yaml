@@ -18,12 +18,13 @@
     frames/lidar: lidar
     frames/imu: imu
 
-    map/waitUntilMove: false
+    map/waitUntilMove: true
     map/dense/filtered: false
     map/sparse/frequency: 1.0
     map/sparse/leafSize: 0.25
 
-    odom/gravity: 9.80665
+    odom/gravity: -9.80665
+    # odom/gravity: 0.0000
 
     odom/imu/approximateGravity: false
     odom/imu/calibration/gyro: true

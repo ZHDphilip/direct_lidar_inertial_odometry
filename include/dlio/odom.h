@@ -62,6 +62,7 @@ private:
 
   void publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud);
   void publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud);
+  void publishForCompress(pcl::PointCloud<PointType>::ConstPtr published_cloud);
   void publishKeyframe(std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>,
                        pcl::PointCloud<PointType>::ConstPtr> kf, rclcpp::Time timestamp);
 
@@ -124,6 +125,7 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr kf_pose_pub;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr kf_cloud_pub;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr deskewed_pub;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr toCompress_pub;
 
   // TF
   std::shared_ptr<tf2_ros::TransformBroadcaster> br;

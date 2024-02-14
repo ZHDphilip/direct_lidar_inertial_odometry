@@ -72,9 +72,9 @@ void dlio::MapNode::callbackKeyframe(const sensor_msgs::msg::PointCloud2::ConstS
   pcl::fromROSMsg(*keyframe, *keyframe_pcl);
 
   // voxel filter
-  this->voxelgrid.setLeafSize(this->leaf_size_, this->leaf_size_, this->leaf_size_);
-  this->voxelgrid.setInputCloud(keyframe_pcl);
-  this->voxelgrid.filter(*keyframe_pcl);
+  // this->voxelgrid.setLeafSize(this->leaf_size_, this->leaf_size_, this->leaf_size_);
+  // this->voxelgrid.setInputCloud(keyframe_pcl);
+  // this->voxelgrid.filter(*keyframe_pcl);
 
   // save filtered keyframe to map for rviz
   *this->dlio_map += *keyframe_pcl;

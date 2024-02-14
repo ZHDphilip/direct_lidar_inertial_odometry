@@ -55,6 +55,7 @@ dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
   this->kf_pose_pub  = this->create_publisher<geometry_msgs::msg::PoseArray>("kf_pose", 1);
   this->kf_cloud_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("kf_cloud", 1);
   this->deskewed_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("deskewed", 1);
+  this->toCompress_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("compress", 1);
 
   this->br = std::make_shared<tf2_ros::TransformBroadcaster>(*this);
 
@@ -372,7 +373,7 @@ void dlio::OdomNode::publishPose() {
 }
 
 void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
-  // this->publishCloud(published_cloud, T_cloud);
+  this->publishCloud(published_cloud, T_cloud);
 
   // nav_msgs::msg::Path
   this->path_ros.header.stamp = this->imu_stamp;
@@ -446,6 +447,26 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
 
 }
 
+void dlio::OdomNode::publishForCompress(pcl::PointCloud<PointType>::ConstPtr published_cloud) {
+
+  pcl::PointCloud<PointType>::Ptr to_compress_scan_t_ = std::make_shared<pcl::PointCloud<PointType>>();
+
+  pcl::transformPointCloud (*published_cloud, *to_compress_scan_t_, Eigen::Matrix4f::Identity());
+
+  sensor_msgs::msg::PointCloud2 to_compress_ros;
+  pcl::toROSMsg(*to_compress_scan_t_, to_compress_ros);
+  to_compress_ros.header.stamp = this->scan_header_stamp;
+  to_compress_ros.header.frame_id = this->odom_frame;
+  this->toCompress_pub->publish(to_compress_ros);
+
+  if (this->promise_value_set) {
+    this->promise_ = std::promise<void>();
+    this->future_ = promise_.get_future();
+  }
+  this->future_.wait();
+
+}
+
 void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
   
   if (this->wait_until_move_) {
@@ -464,7 +485,6 @@ void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published
   deskewed_ros.header.stamp = this->scan_header_stamp;
   deskewed_ros.header.frame_id = this->odom_frame;
   this->deskewed_pub->publish(deskewed_ros);
-  this->future_.wait();
 
 }
 
@@ -515,6 +535,11 @@ void dlio::OdomNode::getScanFromROS(const sensor_msgs::msg::PointCloud2::SharedP
   original_scan_->is_dense = false;
   pcl::removeNaNFromPointCloud(*original_scan_, *original_scan_, idx);
 
+  if (descriptor) {
+    this->current_scan = original_scan_;
+    return;
+  }
+
   // Crop Box Filter
   this->crop.setInputCloud(original_scan_);
   this->crop.filter(*original_scan_);
@@ -539,11 +564,7 @@ void dlio::OdomNode::getScanFromROS(const sensor_msgs::msg::PointCloud2::SharedP
   }
 
   this->scan_header_stamp = pc->header.stamp;
-  if (descriptor) {
-    this->current_scan = original_scan_;
-  }
-  else
-    this->original_scan = original_scan_;
+  this->original_scan = original_scan_;
 
 }
 
@@ -596,7 +617,7 @@ void dlio::OdomNode::preprocessPoints() {
 
   pcl::PointCloud<PointType>::ConstPtr published_cloud;
   published_cloud = this->deskewed_scan;
-  this->publishCloud(published_cloud, this->T_corr);
+  this->publishForCompress(published_cloud);
 
 }
 
@@ -749,11 +770,6 @@ void dlio::OdomNode::initializeDLIO() {
 }
 
 void dlio::OdomNode::callbackDescriptor(const sensor_msgs::msg::PointCloud2::SharedPtr pc) {
-
-  if (this->promise_value_set) {
-    this->promise_ = std::promise<void>();
-    this->future_ = promise_.get_future();
-  }
 
   this->getScanFromROS(pc, true);
 
