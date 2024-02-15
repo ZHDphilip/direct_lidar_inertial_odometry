@@ -317,6 +317,7 @@ private:
   int num_threads_;
 
   bool deskew_;
+  bool compress_;
 
   double gravity_;
 

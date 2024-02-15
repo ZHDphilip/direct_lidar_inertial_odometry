@@ -204,6 +204,9 @@ void dlio::OdomNode::getParams() {
   // Deskew Flag
   dlio::declare_param(this, "pointcloud/deskew", this->deskew_, true);
 
+  // Compress Flag
+  dlio::declare_param(this, "pointcloud/compress", this->compress_, true);
+
   // Gravity
   dlio::declare_param(this, "odom/gravity", this->gravity_, 9.80665);
 
@@ -615,9 +618,13 @@ void dlio::OdomNode::preprocessPoints() {
     this->deskew_status = false;
   }
 
-  pcl::PointCloud<PointType>::ConstPtr published_cloud;
-  published_cloud = this->deskewed_scan;
-  this->publishForCompress(published_cloud);
+  if (this->compress_) {
+    pcl::PointCloud<PointType>::ConstPtr published_cloud;
+    published_cloud = this->deskewed_scan;
+    this->publishForCompress(published_cloud);
+  } else {
+    this->current_scan = this->deskewed_scan;
+  }
 
 }
 
