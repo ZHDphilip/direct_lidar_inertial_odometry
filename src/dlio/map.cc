@@ -93,10 +93,10 @@ void dlio::MapNode::savePCD(std::shared_ptr<direct_lidar_inertial_odometry::srv:
     << " with leaf size " << to_string_with_precision(leaf_size, 2) << "... "; std::cout.flush();
 
   // voxelize map
-  pcl::VoxelGrid<PointType> vg;
-  vg.setLeafSize(leaf_size, leaf_size, leaf_size);
-  vg.setInputCloud(m);
-  vg.filter(*m);
+  // pcl::VoxelGrid<PointType> vg;
+  // vg.setLeafSize(leaf_size, leaf_size, leaf_size);
+  // vg.setInputCloud(m);
+  // vg.filter(*m);
 
   // save map
   int ret = pcl::io::savePCDFileBinary(p + "/dlio_map.pcd", *m);

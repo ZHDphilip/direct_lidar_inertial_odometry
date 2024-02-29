@@ -186,6 +186,7 @@ private:
   // Keyframes
   pcl::PointCloud<PointType>::ConstPtr keyframe_cloud;
   int num_processed_keyframes;
+  int map_size;
 
   pcl::ConvexHull<PointType> convex_hull;
   pcl::ConcaveHull<PointType> concave_hull;

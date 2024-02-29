@@ -23,10 +23,10 @@
     map/sparse/frequency: 1.0
     map/sparse/leafSize: 0.25
 
-    odom/gravity: -9.80665
+    odom/gravity: 9.80665
 
     # compress flag
-    pointcloud/compress: false
+    pointcloud/compress: true
 
     odom/imu/approximateGravity: false
     odom/imu/calibration/gyro: true

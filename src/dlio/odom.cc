@@ -46,7 +46,7 @@ dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
   this->imu_cb_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   auto imu_sub_opt = rclcpp::SubscriptionOptions();
   imu_sub_opt.callback_group = this->imu_cb_group;
-  this->imu_sub = this->create_subscription<sensor_msgs::msg::Imu>("imu", rclcpp::SensorDataQoS(),
+  this->imu_sub = this->create_subscription<sensor_msgs::msg::Imu>("imu", 1000,
       std::bind(&dlio::OdomNode::callbackImu, this, std::placeholders::_1), imu_sub_opt);
 
   this->odom_pub     = this->create_publisher<nav_msgs::msg::Odometry>("odom", 1);
@@ -96,6 +96,7 @@ dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
   this->compressed_scan = std::make_shared<const pcl::PointCloud<PointType>>();
 
   this->num_processed_keyframes = 0;
+  this->map_size = 0;
 
   this->submap_hasChanged = true;
   this->submap_kf_idx_prev.clear();
@@ -224,14 +225,14 @@ void dlio::OdomNode::getParams() {
   dlio::declare_param(this, "map/dense/filtered", this->densemap_filtered_, false);
 
   // Wait until movement to publish map
-  dlio::declare_param(this, "map/waitUntilMove", this->wait_until_move_, false);
+  dlio::declare_param(this, "map/waitUntilMove", this->wait_until_move_, true);
 
   // Crop Box Filter
   dlio::declare_param(this, "odom/preprocessing/cropBoxFilter/size", this->crop_size_, 1.0);
 
   // Voxel Grid Filter
   // when testing should try modify to false 
-  dlio::declare_param(this, "pointcloud/voxelize", this->vf_use_, false);
+  dlio::declare_param(this, "pointcloud/voxelize", this->vf_use_, true);
   dlio::declare_param(this, "odom/preprocessing/voxelFilter/res", this->vf_res_, 0.05);
 
   // Adaptive Parameters
@@ -276,7 +277,7 @@ void dlio::OdomNode::getParams() {
   std::vector<double> accel_default{0., 0., 0.}; std::vector<double> prior_accel_bias;
   std::vector<double> gyro_default{0., 0., 0.}; std::vector<double> prior_gyro_bias;
 
-  dlio::declare_param(this, "odom/imu/approximateGravity", this->gravity_align_, true);
+  dlio::declare_param(this, "odom/imu/approximateGravity", this->gravity_align_, false);
   dlio::declare_param(this, "imu/calibration", this->imu_calibrate_, true);
   dlio::declare_param(this, "imu/intrinsics/accel/bias", prior_accel_bias, accel_default);
   dlio::declare_param(this, "imu/intrinsics/gyro/bias", prior_gyro_bias, gyro_default);
@@ -1811,6 +1812,7 @@ void dlio::OdomNode::buildKeyframesAndSubmap(State vehicle_state) {
                    [&Td](Eigen::Matrix4d cov) { return Td * cov * Td.transpose(); });
 
     ++this->num_processed_keyframes;
+    this->map_size = this->map_size + this->keyframes[i].second->size();
 
     lock.lock();
     this->keyframes[i].second = transformed_keyframe;
@@ -2031,6 +2033,9 @@ void dlio::OdomNode::debug() {
     << "     |" << std::endl;
   std::cout << "| " << std::left << std::setfill(' ') << std::setw(66)
     << "RAM Allocation   :: " + to_string_with_precision(resident_set/1000., 2) + " MB"
+    << "|" << std::endl;
+  std::cout << "| " << std::left << std::setfill(' ') << std::setw(66)
+    << "Map Size         :: " << std::setw(10) << this->map_size << " points"
     << "|" << std::endl;
 
   std::cout << "+-------------------------------------------------------------------+" << std::endl;
