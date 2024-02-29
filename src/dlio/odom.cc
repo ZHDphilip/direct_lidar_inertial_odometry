@@ -2035,7 +2035,7 @@ void dlio::OdomNode::debug() {
     << "RAM Allocation   :: " + to_string_with_precision(resident_set/1000., 2) + " MB"
     << "|" << std::endl;
   std::cout << "| " << std::left << std::setfill(' ') << std::setw(66)
-    << "Map Size         :: " << std::setw(10) << this->map_size << " points"
+    << "Map Size         :: " << std::to_string(this->map_size) << " points"
     << "|" << std::endl;
 
   std::cout << "+-------------------------------------------------------------------+" << std::endl;
