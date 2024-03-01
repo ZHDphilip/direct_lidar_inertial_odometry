@@ -752,6 +752,12 @@ void dlio::OdomNode::initializeInputTarget() {
 
   this->prev_scan_stamp = this->scan_stamp;
 
+  // if (this->compress_) {
+  //   pcl::PointCloud<PointType>::ConstPtr published_cloud;
+  //   published_cloud = this->current_scan;
+  //   this->publishForCompress(published_cloud);
+  // }
+
   // keep history of keyframes
   this->keyframes.push_back(std::make_pair(std::make_pair(this->lidarPose.p, this->lidarPose.q), this->current_scan));
   this->keyframe_timestamps.push_back(this->scan_header_stamp);
@@ -1633,6 +1639,12 @@ void dlio::OdomNode::updateKeyframes() {
   }
 
   if (newKeyframe) {
+
+    // if (this->compress_) {
+    //   pcl::PointCloud<PointType>::ConstPtr published_cloud;
+    //   published_cloud = this->current_scan;
+    //   this->publishForCompress(published_cloud);
+    // }
 
     // update keyframe vector
     std::unique_lock<decltype(this->keyframes_mutex)> lock(this->keyframes_mutex);

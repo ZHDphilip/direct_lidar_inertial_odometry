@@ -48,6 +48,8 @@ void dlio::MapNode::getParams() {
   this->get_parameter("odom/odom_frame", this->odom_frame);
   this->get_parameter("map/sparse/frequency", this->publish_freq_);
   this->get_parameter("map/sparse/leafSize", this->leaf_size_);
+  this->get_parameter("pointcloud/compress", this->voxelize);
+  this->voxelize = ! this->voxelize;
 }
 
 void dlio::MapNode::start() {
@@ -72,9 +74,11 @@ void dlio::MapNode::callbackKeyframe(const sensor_msgs::msg::PointCloud2::ConstS
   pcl::fromROSMsg(*keyframe, *keyframe_pcl);
 
   // voxel filter
-  // this->voxelgrid.setLeafSize(this->leaf_size_, this->leaf_size_, this->leaf_size_);
-  // this->voxelgrid.setInputCloud(keyframe_pcl);
-  // this->voxelgrid.filter(*keyframe_pcl);
+  if (this->voxelize) {
+    this->voxelgrid.setLeafSize(this->leaf_size_, this->leaf_size_, this->leaf_size_);
+    this->voxelgrid.setInputCloud(keyframe_pcl);
+    this->voxelgrid.filter(*keyframe_pcl);
+  }
 
   // save filtered keyframe to map for rviz
   *this->dlio_map += *keyframe_pcl;

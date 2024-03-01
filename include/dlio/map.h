@@ -57,4 +57,6 @@ private:
   double publish_freq_;
   double leaf_size_;
 
+  bool voxelize;
+
 };
