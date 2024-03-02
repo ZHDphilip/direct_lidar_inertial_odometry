@@ -17,6 +17,7 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
+#include <geometry_msgs/msg/pose.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -65,6 +66,7 @@ private:
   void publishForCompress(pcl::PointCloud<PointType>::ConstPtr published_cloud);
   void publishKeyframe(std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>,
                        pcl::PointCloud<PointType>::ConstPtr> kf, rclcpp::Time timestamp);
+  void publishKeyframePose(Eigen::Matrix4f T);
 
   void getScanFromROS(const sensor_msgs::msg::PointCloud2::SharedPtr& pc, bool descriptor=false);
   void preprocessPoints();
@@ -126,6 +128,7 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr kf_cloud_pub;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr deskewed_pub;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr toCompress_pub;
+  rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr kf_pose_to_python_pub;
 
   // TF
   std::shared_ptr<tf2_ros::TransformBroadcaster> br;

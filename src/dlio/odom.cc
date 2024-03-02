@@ -56,6 +56,7 @@ dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
   this->kf_cloud_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("kf_cloud", 1);
   this->deskewed_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("deskewed", 1);
   this->toCompress_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("compress", 1);
+  this->kf_pose_to_python_pub = this->create_publisher<geometry_msgs::msg::Pose>("kf_pose_to_py", 1);
 
   this->br = std::make_shared<tf2_ros::TransformBroadcaster>(*this);
 
@@ -492,6 +493,24 @@ void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published
 
 }
 
+void dlio::OdomNode::publishKeyframePose(Eigen::Matrix4f T) {
+
+  // extract translation and quarternion
+  Eigen::Vector3f t = T.block<3, 1>(0, 3);
+  Eigen::Matrix3f rotation = T.block<3, 3>(0, 0);
+  Eigen::Quaternionf q(rotation);
+
+  geometry_msgs::msg::Pose pose;
+  pose.position.x = t.x();
+  pose.position.y = t.y();
+  pose.position.z = t.z();
+  pose.orientation.w = q.w();
+  pose.orientation.x = q.x();
+  pose.orientation.y = q.y();
+  pose.orientation.z = q.z();
+  this->kf_pose_to_python_pub->publish(pose);
+}
+
 void dlio::OdomNode::publishKeyframe(std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>, pcl::PointCloud<PointType>::ConstPtr> kf, rclcpp::Time timestamp) {
 
   // Push back
@@ -757,6 +776,9 @@ void dlio::OdomNode::initializeInputTarget() {
   //   published_cloud = this->current_scan;
   //   this->publishForCompress(published_cloud);
   // }
+
+  // publish indicator signal to do feature extraction on current scan
+  this->publishKeyframePose(this->T_corr);
 
   // keep history of keyframes
   this->keyframes.push_back(std::make_pair(std::make_pair(this->lidarPose.p, this->lidarPose.q), this->current_scan));
@@ -1645,6 +1667,9 @@ void dlio::OdomNode::updateKeyframes() {
     //   published_cloud = this->current_scan;
     //   this->publishForCompress(published_cloud);
     // }
+
+    // publish indicator signal to do feature extraction on current scan
+    this->publishKeyframePose(this->T_corr);
 
     // update keyframe vector
     std::unique_lock<decltype(this->keyframes_mutex)> lock(this->keyframes_mutex);
